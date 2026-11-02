@@ -37,13 +37,3 @@ void delay_ms(uint32_t ms)
 {
     HAL_Delay(ms);
 }
-
-/* RDY falling edge = a new conversion is ready.
- * (STM32G4 HAL names this callback ..._Falling_Callback. If you already
- *  define it in main.c, call ad7732_rdy_isr() from there and delete this.) */
-void HAL_GPIO_EXTI_Falling_Callback(uint16_t GPIO_Pin)
-{
-    if (GPIO_Pin == ADC_RDY_Pin) {
-        ad7732_rdy_isr();
-    }
-}

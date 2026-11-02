@@ -9,6 +9,7 @@ $gcc = 'C:\ST\STM32CubeIDE_2.2.0\STM32CubeIDE\plugins\com.st.stm32cube.ide.mcu.e
 $scriptSources = @(
     Get-ChildItem (Join-Path $root 'Core\Src\*.c')
     Get-ChildItem (Join-Path $root 'Core\Startup\*.s')
+    Get-ChildItem (Join-Path $root 'Core\APPS\PRESSURE_SENSOR\*.c')
     Get-ChildItem (Join-Path $root 'Drivers\STM32G4xx_HAL_Driver\Src\*.c')
     Get-ChildItem (Join-Path $root 'Drivers\BSP\STM32G4xx_Nucleo\*.c')
 )
@@ -21,6 +22,7 @@ $outputBase = Join-Path $buildDirectory "output_$targetName"
 
 & $gcc -g -mcpu=cortex-m4 -mthumb '--specs=nano.specs' $sources `
     "-I$(Join-Path $root 'Core\Inc')" `
+    "-I$(Join-Path $root 'Core\APPS\PRESSURE_SENSOR')" `
     "-I$(Join-Path $root 'Drivers\STM32G4xx_HAL_Driver\Inc')" `
     "-I$(Join-Path $root 'Drivers\STM32G4xx_HAL_Driver\Inc\Legacy')" `
     "-I$(Join-Path $root 'Drivers\CMSIS\Device\ST\STM32G4xx\Include')" `

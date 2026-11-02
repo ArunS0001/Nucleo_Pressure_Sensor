@@ -65,6 +65,10 @@ uint8_t RxData[8];              // <-- Ensure this is an array of 8 bytes
 // Global signaling flag: volatile prevents the compiler from optimizing it out
 volatile uint8_t newMessageReady = 0;
 volatile uint8_t ad7732ReadyFlag = 0;
+volatile uint32_t ad7732InterruptCount = 0U;
+uint32_t ad7732LastInterruptCount = 0U;
+uint32_t buttonNextCanTxMs = 0U;
+uint32_t canLedOffMs = 0U;
 
 /* USER CODE END PV */
 
@@ -222,6 +226,12 @@ int main(void)
   while (1)
   {
 	  uint32_t nowMs = HAL_GetTick();
+	  if ((canLedOffMs != 0U) &&
+	      ((uint32_t)(nowMs - canLedOffMs) >= 2000U))
+	  {
+		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+		  canLedOffMs = 0U;
+	  }
 	  if (ad7732Initialized && ((uint32_t)(nowMs - ad7732LastReadMs) >= 1000U))
 	  {
 		  ad7732_stats_t st;
@@ -229,6 +239,10 @@ int main(void)
 
 		  if (ad7732_take_stats(&st))
 		  {
+			  uint32_t interruptCount = ad7732InterruptCount;
+			  uint32_t interruptDelta = interruptCount - ad7732LastInterruptCount;
+			  ad7732LastInterruptCount = interruptCount;
+
 			  /* Optional: take the first window as 0 psi.
 	         	 Only valid if the sensor is at zero pressure and has warmed up. */
 			  if (!ad7732Zeroed)
@@ -241,8 +255,8 @@ int main(void)
 			  long maxMpsi  = (long)(ad7732_raw_to_psi(st.raw_max)  * 1000.0);
 			  long meanMpsi = (long)(ad7732_raw_to_psi(st.raw_mean) * 1000.0);
 
-			  printf("AD7732 n=%lu, min=%ld, max=%ld, mean=%ld mpsi, pp=%ld mpsi, ADCpk=%ld mV, flags=0x%02X\r\n",
-	             (unsigned long)st.n,
+			  printf("AD7732 irq=%lu, delta=%lu, n=%lu, min=%ld, max=%ld, mean=%ld mpsi, pp=%ld mpsi, ADCpk=%ld mV, flags=0x%02X\r\n",
+	             (unsigned long)interruptCount, (unsigned long)interruptDelta, (unsigned long)st.n,
 	             minMpsi, maxMpsi, meanMpsi,
 	             maxMpsi - minMpsi,
 	             (long)(ad7732_raw_to_volts(st.raw_max) * 1000.0),
@@ -259,6 +273,10 @@ int main(void)
     {
       /* Update button state */
       BspButtonState = BUTTON_RELEASED;
+      if ((int32_t)(HAL_GetTick() - buttonNextCanTxMs) < 0)
+      {
+        continue;
+      }
       /* -- Sample board code to toggle led ---- */
       BSP_LED_Toggle(LED_GREEN);
 
@@ -277,9 +295,8 @@ int main(void)
       if (HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &TxHeader, TxData) == HAL_OK)
       {
           HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5); // Toggle Nucleo Green LED on a successful queue
+          buttonNextCanTxMs = HAL_GetTick() + 1000U;
       }
-
-      HAL_Delay(1000); // Wait 1 second before sending again
       /* ..... Perform your action ..... */
     }
 
@@ -300,8 +317,7 @@ int main(void)
             {
                 // You can use regular safe delays or intensive logic here!
                 HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
-                HAL_Delay(2000);
-                HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+                canLedOffMs = HAL_GetTick();
                 printf ("New CAN message \r\n");
             }
         }
@@ -565,25 +581,17 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   if (GPIO_Pin == ADC_RDY_Pin)
   {
     ad7732ReadyFlag = 1;
+    ad7732InterruptCount++;
+    ad7732_rdy_isr();
   }
 }
 
 void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 {
-    // Change this line to use _NEW_MESSAGE
     if ((RxFifo0ITs & FDCAN_IT_RX_FIFO0_NEW_MESSAGE) != 0)
     {
-        // Extract the message from RX FIFO 0
         if (HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK)
         {
-        	// Toggle the LED 6 times (On/Off x 3 = 6 toggles)
-        	for (int i = 0; i < 6; i++)
-        	{
-        	     HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
-                // Safe blocking delay for inside an ISR (approx. 50-100ms)
-                for (volatile uint32_t delay = 0; delay < 400000; delay++);
-            }
-        	// Toggle the green LED on the Nucleo board when a packet arrives
         	newMessageReady = 1;
         }
     }
