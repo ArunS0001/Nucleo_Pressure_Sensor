@@ -18,10 +18,10 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "ad7732_pressure.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "ad7732_pressure.h"
 #include <stdbool.h>
 
 /* USER CODE END Includes */
@@ -52,11 +52,7 @@ FDCAN_HandleTypeDef hfdcan1;
 SPI_HandleTypeDef hspi1;
 
 /* USER CODE BEGIN PV */
-/* USER CODE BEGIN PV */
-
-/* USER CODE BEGIN PV */
 static bool ad7732Zeroed = false;     /* set true after the zero offset is stored */
-/* USER CODE END PV */
 
 FDCAN_TxHeaderTypeDef TxHeader;
 FDCAN_RxHeaderTypeDef RxHeader; // <-- Ensure this is exactly 'RxHeader'
@@ -423,7 +419,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CLKPolarity = SPI_POLARITY_HIGH;
   hspi1.Init.CLKPhase = SPI_PHASE_2EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_128;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -494,12 +490,6 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
-/* USER CODE BEGIN 4 */
-
-/* USER CODE BEGIN 4 */
-
-/* USER CODE BEGIN 4 */
 static bool AD7732_ReadRevision(uint8_t *revision)
 {
   return AD7732_ReadRegister(AD7732_REG_REVISION, revision);
@@ -568,6 +558,7 @@ static bool AD7732_Detect(uint8_t *revision)
 
   return false;
 }
+
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
