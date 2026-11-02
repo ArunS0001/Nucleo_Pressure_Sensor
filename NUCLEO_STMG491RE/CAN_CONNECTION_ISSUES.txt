@@ -1,0 +1,469 @@
+CAN CONNECTION CHECKLIST
+=========================
+
+Projects:
+- NUCLEO_STMG491RE
+- RDIB_XLN_ALPHA_Z
+
+Assumption:
+The three wires taken from the NUCLEO-side CAN transceiver are CANH, CANL, and GND.
+Verify the wire labels with the transceiver datasheet or board schematic.
+
+1. CAN BITRATE MISMATCH - BLOCKER
+----------------------------------
+RDIB is configured for 1 Mbps Classic CAN.
+NUCLEO is configured for 500 kbps Classic CAN.
+
+Both nodes must use the same nominal bitrate.
+Recommended first test: configure both nodes for 1 Mbps.
+
+2. CAN ID MISMATCH - BLOCKER
+-----------------------------
+RDIB receives/handles these standard IDs:
+  0x01  Heartbeat from X/S
+  0x0A  Aspirate request
+  0x20  Homing command
+  0x21  Motor move command
+  0x22  Motor stop command
+  0x23  Motor limit command
+  0x24  Heartbeat frequency command
+  0x25  Firmware version request
+  0x27  Move Z down request
+  0x28  Move Z up request
+
+NUCLEO currently:
+  Receives only ID 0x456
+  Transmits ID 0x12
+
+Therefore the NUCLEO will not receive current RDIB messages, and RDIB has no handler for NUCLEO ID 0x12.
+Use IDs from the RDIB protocol for the first test.
+
+3. NUCLEO HAS ZERO CONFIGURED STANDARD FILTERS - BLOCKER
+----------------------------------------------------------
+NUCLEO sets StdFiltersNbr = 0 but configures filter index 0.
+Change StdFiltersNbr to 1 before calling HAL_FDCAN_ConfigFilter().
+
+4. NUCLEO FILTER DOES NOT MATCH RDIB HEARTBEAT
+-----------------------------------------------
+The NUCLEO filter is configured for 0x456.
+RDIB transmits its heartbeat using HEART_BEAT_A_Z, currently 0x1F.
+For a heartbeat reception test, filter NUCLEO for 0x1F with mask 0x7FF.
+
+5. NUCLEO TRANSMIT TEST IS BUTTON-DEPENDENT
+--------------------------------------------
+NUCLEO transmits only after the user button is pressed.
+It sends ID 0x12 and the test payload AA BB CC DD 11 22 33 44.
+This is not an RDIB command, so RDIB will ignore it.
+
+6. DO NOT CONNECT MCU CAN PINS DIRECTLY TO CANH/CANL
+-----------------------------------------------------
+The MCU pins are logic-level FDCAN pins.
+The CAN transceiver must be between the MCU and the bus.
+
+NUCLEO MCU pin assignment:
+  PA11 = FDCAN1_RX
+  PA12 = FDCAN1_TX
+
+RDIB MCU pin assignment:
+  PB12 = FDCAN2_RX
+  PB13 = FDCAN2_TX
+
+External bus wiring should be:
+  NUCLEO transceiver CANH <-> RDIB transceiver CANH
+  NUCLEO transceiver CANL <-> RDIB transceiver CANL
+  NUCLEO GND           <-> RDIB GND
+
+7. VERIFY TRANSCEIVER POWER AND STANDBY
+----------------------------------------
+Verify the NUCLEO transceiver has the correct supply voltage.
+Verify TXD/RXD logic voltage is compatible with the STM32G491.
+Verify STBY, EN, SILENT, or slope-control pins are in the active state.
+A transceiver left in standby or silent mode cannot communicate.
+
+8. VERIFY TERMINATION
+----------------------
+The complete bus should normally have two 120-ohm termination resistors:
+  One at each physical end of the CAN cable.
+
+With power removed, measure approximately 60 ohms between CANH and CANL
+when both 120-ohm terminators are present.
+Do not add a third termination resistor at an intermediate node.
+
+9. VERIFY GROUND
+-----------------
+Connect the grounds of the two CAN transceiver sides.
+CANH and CANL alone may work on some installations, but a common reference
+is strongly recommended for reliable communication.
+
+10. CLASSIC CAN SETTINGS MUST MATCH
+------------------------------------
+Both projects currently use:
+  Frame format: Classic CAN
+  Bit rate switching: OFF
+  Standard 11-bit identifiers
+  Data frames
+
+Do not enable CAN-FD or bitrate switching on only one node.
+
+11. NUCLEO RECEIVE CALLBACK IS TOO SLOW
+----------------------------------------
+The NUCLEO CAN callback performs LED toggles and a long busy-wait inside the ISR.
+Remove the delay from the callback.
+The callback should only read the FIFO message, copy/store it, set a flag, and return.
+Long ISR execution can cause FIFO overflow or lost messages.
+
+12. NUCLEO RECEIVES ONLY ONE FIFO MESSAGE PER INTERRUPT
+--------------------------------------------------------
+The NUCLEO callback calls HAL_FDCAN_GetRxMessage() once.
+If multiple messages arrive, drain FIFO0 in a loop or use a queue.
+
+13. CHECK RECEIVED FRAME TYPE AND DATA LENGTH
+----------------------------------------------
+Before processing a received message, verify:
+  RxHeader.IdType == FDCAN_STANDARD_ID
+  RxHeader.RxFrameType == FDCAN_DATA_FRAME
+  RxHeader.DataLength is large enough for the expected payload
+
+Do not read RxData[1] or later bytes from a short frame without checking length.
+
+14. ID ENCODING DESIGN NEEDS CONFIRMATION
+------------------------------------------
+RDIB headers describe a possible node-ID plus command-ID layout, but the current
+RDIB receive code compares the complete RxHeader.Identifier directly with IDs
+such as 0x20 and 0x21.
+
+Confirm whether the bus uses:
+  Raw command IDs, for example 0x21
+or:
+  Encoded node/command IDs, for example (node_id << 6) | command
+
+Both devices must use the same convention.
+
+15. AUTO RETRANSMISSION IS DISABLED
+------------------------------------
+Both configurations disable automatic retransmission.
+For initial bench testing, enabling AutoRetransmission may make recovery easier.
+If it remains disabled, monitor transmit failures and bus-off status explicitly.
+
+RECOMMENDED FIRST BENCH TEST
+============================
+1. Power both transceivers and confirm standby/enable pins are active.
+2. Connect CANH, CANL, and GND.
+3. Confirm two 120-ohm terminations and approximately 60 ohms across CANH/CANL.
+4. Set both nodes to 1 Mbps Classic CAN.
+5. Set NUCLEO StdFiltersNbr = 1.
+6. Configure NUCLEO to receive standard ID 0x1F.
+7. Temporarily make NUCLEO transmit standard ID 0x20 on button press.
+8. On RDIB, confirm the command is received by observing the debugger or a GPIO.
+9. After the physical link works, implement the complete RDIB payload protocol.
+
+CURRENT MOST LIKELY FAILURE ORDER
+==================================
+1. 500 kbps versus 1 Mbps mismatch.
+2. NUCLEO StdFiltersNbr = 0.
+3. NUCLEO filter set to 0x456 instead of an RDIB ID.
+4. NUCLEO transmits 0x12, which RDIB does not handle.
+5. Missing transceiver power/enable or incorrect CANH/CANL wiring.
+6. Missing or incorrect bus termination.
+7. Blocking delay inside the NUCLEO CAN interrupt callback.
+
+
+COMPLETE RDIB versus NUCLEO COMPARISON
+======================================
+
+A. FDCAN PERIPHERAL INSTANCE
+-----------------------------
+RDIB uses FDCAN2.
+NUCLEO uses FDCAN1.
+
+This is not a protocol problem. The two peripheral instance numbers do not need
+to match because both connect to the external CAN bus through transceivers.
+The external wiring must connect transceiver CANH to CANH and CANL to CANL.
+
+B. MCU PIN ASSIGNMENT
+---------------------
+RDIB:
+  PB12 = FDCAN2_RX
+  PB13 = FDCAN2_TX
+
+NUCLEO:
+  PA11 = FDCAN1_RX
+  PA12 = FDCAN1_TX
+
+Do not connect RDIB PB12/PB13 directly to NUCLEO PA11/PA12.
+These are MCU-side logic signals. Connect the transceiver bus-side CANH/CANL
+signals instead.
+
+C. CAN CLOCK SOURCE
+-------------------
+RDIB uses PCLK1 as the FDCAN clock and the project configuration indicates
+approximately 144 MHz FDCAN clock.
+NUCLEO uses PCLK1 as the FDCAN clock and the project configuration indicates
+16 MHz FDCAN clock.
+
+The different clock frequencies are acceptable by themselves. The final CAN
+bit timing must still produce the same nominal bus bitrate.
+
+D. BITRATE CALCULATION
+----------------------
+RDIB:
+  FDCAN clock = 144 MHz
+  Prescaler = 1
+  Time quanta = 1 + 71 + 72 = 144
+  Bitrate = 144 MHz / (1 * 144) = 1 Mbps
+
+NUCLEO:
+  FDCAN clock = 16 MHz
+  Prescaler = 2
+  Time quanta = 1 + 12 + 3 = 16
+  Bitrate = 16 MHz / (2 * 16) = 500 kbps
+
+These settings cannot communicate together. The NUCLEO must be changed to
+1 Mbps or RDIB must be changed to 500 kbps.
+
+E. SAMPLE NUCLEO 1 Mbps TIMING
+------------------------------
+For a 16 MHz FDCAN clock, one possible 1 Mbps configuration is:
+  NominalPrescaler = 1
+  NominalSyncJumpWidth = 1
+  NominalTimeSeg1 = 15
+  NominalTimeSeg2 = 2
+
+Calculation:
+  16 MHz / (1 * (1 + 15 + 2)) = 1 Mbps
+
+Confirm the actual FDCAN clock before using these values.
+
+F. FRAME FORMAT
+---------------
+Both projects use Classic CAN.
+Both use FDCAN_BRS_OFF.
+Both use FDCAN_CLASSIC_CAN.
+
+This part is compatible. Do not enable CAN-FD or bitrate switching on only one
+device.
+
+G. IDENTIFIER TYPE
+------------------
+Both projects use standard 11-bit identifiers.
+RDIB receives with FDCAN_STANDARD_ID.
+NUCLEO receives with FDCAN_STANDARD_ID.
+
+The HAL returns RxHeader.Identifier as the normal unshifted numeric CAN ID.
+No 18-bit shift should be applied in application code.
+
+H. RDIB RECEIVE FILTER
+----------------------
+RDIB configures one standard range filter:
+  Filter type = FDCAN_FILTER_RANGE
+  Range = 0x01 through 0x2F
+  Destination = RX FIFO0
+
+This admits all IDs in that interval, including undefined IDs.
+Unknown IDs are silently ignored by the switch statement.
+
+The range includes the current RDIB command IDs, but it does not mean that all
+11-bit CAN IDs are accepted.
+
+I. NUCLEO RECEIVE FILTER
+------------------------
+NUCLEO configures a standard mask filter:
+  Filter type = FDCAN_FILTER_MASK
+  Filter ID = 0x456
+  Mask = 0x7FF
+  Destination = RX FIFO0
+
+This is an exact-match filter for 0x456.
+It rejects RDIB heartbeat ID 0x1F and all RDIB command IDs.
+
+For the first RDIB heartbeat test, use:
+  FilterID1 = 0x1F
+  FilterID2 = 0x7FF
+
+J. NUCLEO FILTER MEMORY ALLOCATION ERROR
+-----------------------------------------
+NUCLEO sets:
+  StdFiltersNbr = 0
+
+But it configures filter index 0.
+Set StdFiltersNbr = 1 before configuring filter index 0.
+Otherwise the filter configuration is invalid and can corrupt or overlap the
+FDCAN message RAM layout when runtime assertions are disabled.
+
+RDIB correctly sets StdFiltersNbr = 1 for its filter index 0.
+
+K. TRANSMIT IDENTIFIERS
+-----------------------
+RDIB transmits its A/Z heartbeat using ID 0x1F.
+RDIB transmits the firmware response using ID 0x26.
+
+NUCLEO transmits ID 0x12 when the user button is pressed.
+
+RDIB accepts 0x12 at the hardware range filter, but has no software switch
+case for 0x12, so it ignores the message.
+
+L. RECEIVE IDENTIFIER DISPATCH
+------------------------------
+RDIB dispatches commands by comparing the complete received ID directly:
+  switch ((CanMessageId_t)RxHeader.Identifier)
+
+NUCLEO does not dispatch by ID. It reads the payload and checks RxData[0] for
+0x99 in the main loop.
+
+The NUCLEO test application therefore does not implement the RDIB command
+protocol. It is only a generic receive demonstration at present.
+
+M. POSSIBLE NODE-ID ENCODING CONFLICT
+-------------------------------------
+RDIB headers describe a possible split between node ID bits and command ID bits.
+However, the actual RDIB receive code compares complete IDs such as 0x20 and
+0x21 without extracting a node field.
+
+Confirm which format the real bus uses:
+  Raw ID: 0x21
+or:
+  Encoded ID: (node_id << 6) | command_id
+
+Both projects must use the same format. Do not add node-ID encoding to only one
+side.
+
+N. DATA LENGTH HANDLING
+-----------------------
+RDIB reads several payload bytes for different commands but does not validate
+RxHeader.DataLength before reading them.
+
+NUCLEO reads RxData[0] and RxData[1] but also does not validate DataLength.
+
+Both applications should reject short frames before accessing payload bytes.
+The expected data length should be defined per command.
+
+O. RX FIFO PROCESSING
+---------------------
+RDIB drains RX FIFO0 in a while loop until it is empty.
+This is good for bursts of messages.
+
+NUCLEO reads only one FIFO0 message per callback.
+If multiple messages arrive before the next interrupt, the FIFO may fill and
+messages may be lost. NUCLEO should drain FIFO0 in a loop or use a queue.
+
+P. INTERRUPT CALLBACK EXECUTION TIME
+------------------------------------
+RDIB performs command processing and motion-control calls inside the FDCAN
+callback. Some commands can perform substantial work.
+
+NUCLEO performs six LED toggles and a busy-wait loop inside the FDCAN callback.
+This is especially unsafe because it blocks inside an interrupt service routine.
+
+Recommended design for both projects:
+  1. Read the frame in the callback.
+  2. Copy it into a queue or protected buffer.
+  3. Set a volatile event flag.
+  4. Return immediately.
+  5. Process the command in the main loop or a lower-priority task.
+
+Q. STARTUP AND INTERRUPTS
+-------------------------
+Both projects initialize the FDCAN peripheral before starting it and enable
+RX FIFO0 new-message notification.
+Both projects forward the FDCAN interrupt to HAL_FDCAN_IRQHandler().
+
+This part is structurally compatible.
+
+R. HAL RETURN VALUES
+--------------------
+NUCLEO checks the filter configuration and notification activation results, but
+does not check the return value of HAL_FDCAN_Start().
+
+RDIB does not check the return values of filter configuration, global filter
+configuration, start, or notification activation.
+
+All of these return values should be checked during initialization so a CAN
+startup failure is detected instead of leaving the system apparently running.
+
+S. GLOBAL FILTER BEHAVIOR
+-------------------------
+RDIB explicitly rejects non-matching standard and extended frames and rejects
+remote frames through HAL_FDCAN_ConfigGlobalFilter().
+
+The NUCLEO does not explicitly configure the global filter in its user code.
+Configure it explicitly so rejected standard, extended, and remote frames have
+known behavior.
+
+T. AUTO RETRANSMISSION
+----------------------
+Both projects disable automatic retransmission.
+
+During initial bench testing, enabling AutoRetransmission can make recovery
+from arbitration or temporary bus errors easier. If it remains disabled, check
+HAL transmit return values and monitor bus-off/error status.
+
+U. BUS-OFF RECOVERY
+-------------------
+NUCLEO checks the bus-off bit only when the user button is pressed, then stops
+and restarts FDCAN1.
+
+RDIB does not show an equivalent CAN bus-off recovery path in the CAN module.
+Its transmit failure path calls Error_Handler() for heartbeat transmission.
+
+Both applications should have a deliberate bus-off recovery and error-reporting
+strategy for the connected system.
+
+V. PHYSICAL TRANSCEIVER REQUIREMENTS
+------------------------------------
+The MCU FDCAN pins are not CANH/CANL pins.
+Both nodes require working CAN transceivers.
+
+Check on the NUCLEO side:
+  - Transceiver VCC is correct.
+  - Transceiver GND is connected.
+  - MCU TX is connected to transceiver TXD.
+  - MCU RX is connected to transceiver RXD.
+  - STBY/EN/SILENT is in the active state.
+  - CANH and CANL are not swapped.
+
+W. CAN BUS TOPOLOGY
+-------------------
+Connect:
+  NUCLEO transceiver CANH <-> RDIB transceiver CANH
+  NUCLEO transceiver CANL <-> RDIB transceiver CANL
+  NUCLEO GND           <-> RDIB GND
+
+Use two 120-ohm termination resistors at the two physical bus ends.
+With power removed, approximately 60 ohms should be measured between CANH and
+CANL when both terminators are installed.
+
+X. CLOCK CONFIGURATION WARNING
+------------------------------
+RDIB's HAL configuration uses an 8 MHz HSE, but system_stm32g4xx.c contains a
+default HSE_VALUE of 24 MHz.
+
+This can make SystemCoreClock and timing-dependent APIs incorrect even though
+the FDCAN configuration is calculated from the HAL clock settings.
+Ensure the system clock source definitions consistently use the actual board
+oscillator value.
+
+Y. PAYLOAD PROTOCOL COMPATIBILITY
+---------------------------------
+The NUCLEO test payload is:
+  AA BB CC DD 11 22 33 44
+
+RDIB expects command-specific payload layouts. For example:
+  MOTOR_MOVE_A_Z uses motor selection and position fields.
+  MOTOR_STOP_A_Z uses a motor selection byte.
+  MOTOR_LIMIT_SET_A_Z uses A and Z limit fields.
+
+The NUCLEO payload must be changed to the exact RDIB command payload before
+using it as a functional controller.
+
+Z. TEST ORDER
+-------------
+1. Verify transceiver power, ground, standby/enable, CANH, and CANL.
+2. Verify two 120-ohm terminations and approximately 60 ohms across the bus.
+3. Set both nodes to 1 Mbps Classic CAN.
+4. Set NUCLEO StdFiltersNbr = 1.
+5. Configure NUCLEO to receive ID 0x1F.
+6. Make NUCLEO transmit ID 0x20 with an 8-byte test payload.
+7. Confirm RDIB receives the frame without starting dangerous motion.
+8. Test RDIB heartbeat ID 0x1F into NUCLEO.
+9. Implement and test each command payload one at a time.
+10. Add error counters and bus-off diagnostics before extended testing.

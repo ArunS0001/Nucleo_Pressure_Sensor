@@ -1,0 +1,73 @@
+//---------------------------------------------------------------------------------------------------------------------------------------------------------
+How to run the project in Nucleo G491RE
+
+1.) Right click on zxc1 project and click on Run as C\C++ STM32 Application.
+2.) Click Ok.
+3.) Download of program should start into board.
+4.) Download should complete with below message:
+Time elapsed during download operation: 00:00:00.428
+
+Verifying...
+
+Time elapsed during verifying operation: 00:00:00.041
+Download verified successfully
+
+Shutting down...
+Exit.
+
+5.) Open TeraTerm and select a serial port. 
+6.) Click  on reset button on nucleo board.
+7.) The message called: Welcome to STM32 world ! must be visible on the screen.
+
+//----------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+1.) D:\0cc_views\1409_SEP\TEST_1409
+2.) Open STM32CUBEMX.
+3.) Select correct board.
+4.) Type NUCLEO-G491RE in part number.
+5.) Select the Board
+6.) Click start project on top.
+7.) Board project option window opens:
+8.) Select demonstration code , select all options under human machine interface.
+9.) Window opens with port pin configuration.
+10.) Navigate to project manager. 1.) Give name to project (zxc1) 2.) select location of project (D:\0cc_views\test_1309)3.) Select toolchain as stm32cubeide 4.) MCU reference: STM32G491RETx
+11.) Click on generate code on top.
+12.) Window pops up informing code is generated.
+13.) Code gets generated in location: D:\0cc_views\test_1309\zxc1
+14.) The directtory structure after code generation is as follows:
+ .settings
+ Core
+ Drivers
+ .cproject
+ .mxproject
+ .project
+ STM32G491RETX_FLASH.ld
+ STM32G491RETX_RAM.ld
+ zxc1.ioc
+ 15.) DOuble click on .cproject to open the project in stm32cubeide.
+ 16.) Choose any existing directory and ide will import zxc1 project into it.
+17.) Project is now open in stm32cube ide.
+18.) Left click on zxc1 and click build project.
+19.) Project should compile without any errors.
+
+20.) Output of build is as follows:
+arm-none-eabi-gcc "../Core/Src/system_stm32g4xx.c" -mcpu=cortex-m4 -std=gnu11 -g3 -DDEBUG -DUSE_NUCLEO_64 -DUSE_HAL_DRIVER -DSTM32G491xx -c -I../Core/Inc -I../Drivers/STM32G4xx_HAL_Driver/Inc -I../Drivers/STM32G4xx_HAL_Driver/Inc/Legacy -I../Drivers/BSP/STM32G4xx_Nucleo -I../Drivers/CMSIS/Device/ST/STM32G4xx/Include -I../Drivers/CMSIS/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"Core/Src/system_stm32g4xx.d" -MT"Core/Src/system_stm32g4xx.o" --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -o "Core/Src/system_stm32g4xx.o"
+arm-none-eabi-gcc -o "zxc1.elf" @"objects.list"   -mcpu=cortex-m4 -T"D:\0cc_views\test_1309\zxc1\STM32G491RETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="zxc1.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+Finished building target: zxc1.elf
+ 
+arm-none-eabi-size  zxc1.elf 
+arm-none-eabi-objdump -h -S zxc1.elf  > "zxc1.list"
+   text	   data	    bss	    dec	    hex	filename
+  15272	    124	   2084	  17480	   4448	zxc1.elf
+Finished building: default.size.stdout
+ 
+Finished building: zxc1.list
+ 
+
+11:38:27 Build Finished. 0 errors, 0 warnings. (took 3s.162ms)
+
+//----------------------------------------------------------------------------------------------------------------------------------------------------------------------- 
+ 

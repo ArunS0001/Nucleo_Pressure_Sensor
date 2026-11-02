@@ -1,0 +1,22 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../../09_SEPTEMBER/PAVENDAN_2509/XLNXT_FW-main 1/XLNXT_FW-main/XLNext_Test_Application"
+		},
+		{
+			"path": "../../Pippette_Board/PIP_BOARD_2209"
+		},
+		{
+			"path": "../../EXPERIMENTAL/bldcMortar-drive"
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"*.h": "c",
+			"*.ioc": "properties"
+		}
+	}
+}

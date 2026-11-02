@@ -1,0 +1,82 @@
+# Prerequisites
+*.d
+
+# Object files
+*.o
+*.ko
+*.obj
+*.elf
+
+# Linker output
+*.ilk
+*.map
+*.exp
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Libraries
+*.lib
+*.a
+*.la
+*.lo
+
+# Shared objects (inc. Windows DLLs)
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Executables
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Kernel Module Compile Results
+*.mod*
+*.cmd
+.tmp_versions/
+modules.order
+Module.symvers
+Mkfile.old
+dkms.conf
+
+# debug information files
+*.dwo
+
+# Compilations and Build Outputs
+build/
+*.elf
+*.bin
+*.hex
+*.map
+*.o
+*.d
+*.su
+*.obj
+
+
+# VS Code local states
+.vscode/.history/
+.vscode/ipch/
+.vscode/*.log
+
+#ignore all files under Debug.
+**/Debug/
+
+#Ignore settings file.
+.settings/
+
+#Git commands.
+#git rm -r --cached Debug/ Removes the Debug folder and stops git from tracking.
+#git rm -r --cached .settings/ Removes the settings folder and stops git from tracking.
